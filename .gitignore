@@ -8,9 +8,8 @@ venv/
 # Data & models (large, regenerable — keep out of git)
 data/raw/
 data/processed/*.png
-models/*.joblib
-models/distilbert/
-models/thresholds.json
+
+
 
 # Jupyter
 .ipynb_checkpoints/

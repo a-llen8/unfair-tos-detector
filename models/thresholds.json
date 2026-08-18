@@ -1,0 +1,32 @@
+{
+  "categories": [
+    "Limitation of liability",
+    "Unilateral termination",
+    "Unilateral change",
+    "Content removal",
+    "Contract by using",
+    "Choice of law",
+    "Jurisdiction",
+    "Arbitration"
+  ],
+  "distilbert_thresholds": {
+    "Limitation of liability": 0.6100000000000001,
+    "Unilateral termination": 0.6500000000000001,
+    "Unilateral change": 0.9300000000000002,
+    "Content removal": 0.9500000000000002,
+    "Contract by using": 0.8700000000000002,
+    "Choice of law": 0.9200000000000003,
+    "Jurisdiction": 0.8700000000000002,
+    "Arbitration": 0.9500000000000002
+  },
+  "baseline_thresholds": {
+    "Limitation of liability": 0.8600000000000002,
+    "Unilateral termination": 0.6000000000000002,
+    "Unilateral change": 0.6700000000000002,
+    "Content removal": 0.5700000000000002,
+    "Contract by using": 0.7400000000000002,
+    "Choice of law": 0.7500000000000002,
+    "Jurisdiction": 0.27,
+    "Arbitration": 0.8200000000000002
+  }
+}
