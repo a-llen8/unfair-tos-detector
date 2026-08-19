@@ -16,4 +16,4 @@ data/processed/*.png
 
 # OS
 .DS_Store
-EOF
+EOF.ipynb_checkpoints/ 
