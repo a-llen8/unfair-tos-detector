@@ -1,0 +1,844 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Redline — unfair clause detector</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,wght@0,400;0,500;0,600;0,700;1,500&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink-900:#0F1B28;
+    --ink-800:#16273A;
+    --ink-700:#1F3348;
+    --ink-600:#2B4159;
+    --paper:#EFE7D8;
+    --paper-dim:#E3DAC6;
+    --paper-ink:#241F14;
+    --paper-ink-dim:#5B5240;
+    --text-primary:#EDE7D8;
+    --text-muted:#93A6B8;
+    --text-faint:#5E7488;
+    --gold:#C9A227;
+    --gold-bright:#E0BC4A;
+    --crimson:#B23A4E;
+    --forest:#4C9A6A;
+
+    --cat-lol:#C9A227;
+    --cat-ut:#B23A4E;
+    --cat-uc:#6E7FD1;
+    --cat-cr:#4C9A6A;
+    --cat-cbu:#C97B3E;
+    --cat-col:#8A6BB0;
+    --cat-jx:#4090A8;
+    --cat-arb:#8A5A44;
+
+    --font-display:'Newsreader', Georgia, 'Times New Roman', serif;
+    --font-body:'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --font-mono:'IBM Plex Mono', 'SFMono-Regular', Consolas, monospace;
+
+    --radius-sm:6px;
+    --radius-md:10px;
+    --radius-lg:18px;
+  }
+
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0;
+    background:
+      radial-gradient(1200px 600px at 15% -10%, rgba(201,162,39,0.08), transparent 60%),
+      radial-gradient(900px 500px at 100% 0%, rgba(64,144,168,0.07), transparent 55%),
+      var(--ink-900);
+    color:var(--text-primary);
+    font-family:var(--font-body);
+    -webkit-font-smoothing:antialiased;
+    min-height:100vh;
+  }
+
+  a{color:var(--gold-bright);}
+  ::selection{background:rgba(201,162,39,0.35);}
+
+  :focus-visible{
+    outline:2px solid var(--gold);
+    outline-offset:2px;
+    border-radius:4px;
+  }
+
+  .wrap{max-width:1240px; margin:0 auto; padding:0 40px;}
+
+  /* ---------- header ---------- */
+  header.top{
+    padding:28px 0 8px;
+    display:flex; align-items:center; justify-content:space-between; gap:16px;
+  }
+  .brand{display:flex; align-items:center; gap:12px;}
+  .brand svg{flex-shrink:0;}
+  .brand-text .wordmark{
+    font-family:var(--font-display); font-weight:600; font-size:20px;
+    letter-spacing:0.04em; color:var(--text-primary); line-height:1;
+  }
+  .brand-text .tagline{
+    font-family:var(--font-mono); font-size:11px; letter-spacing:0.03em;
+    color:var(--text-faint); margin-top:3px;
+  }
+  .repo-link{
+    font-family:var(--font-mono); font-size:12px; color:var(--text-muted);
+    text-decoration:none; border:1px solid var(--ink-600); padding:7px 12px;
+    border-radius:999px; transition:border-color .15s, color .15s;
+    white-space:nowrap;
+  }
+  .repo-link:hover{border-color:var(--gold); color:var(--gold-bright);}
+
+  /* ---------- hero ---------- */
+  .hero{padding:44px 0 8px;}
+  .hero-grid{
+    display:grid; grid-template-columns:minmax(320px, 440px) 1fr; gap:56px; align-items:start;
+  }
+  .hero-copy{padding-top:6px;}
+  .hero-panel{position:sticky; top:28px;}
+  .eyebrow{
+    font-family:var(--font-mono); font-size:12px; letter-spacing:0.12em;
+    text-transform:uppercase; color:var(--gold-bright); margin:0 0 14px;
+    display:flex; align-items:center; gap:10px;
+  }
+  .eyebrow::before{content:""; width:22px; height:1px; background:var(--gold); display:inline-block;}
+  h1{
+    font-family:var(--font-display); font-weight:600; font-style:normal;
+    font-size:clamp(1.9rem, 2.6vw, 2.7rem); line-height:1.16; letter-spacing:-0.01em;
+    margin:0 0 18px;
+  }
+  h1 em{font-style:italic; color:var(--gold-bright); font-weight:500;}
+  .sub{
+    font-size:16px; line-height:1.65; color:var(--text-muted); max-width:56ch; margin:0 0 26px;
+  }
+
+  .status-row{display:flex; align-items:center; gap:10px; margin-bottom:30px; flex-wrap:wrap;}
+  .status-dot{
+    width:9px; height:9px; border-radius:50%; background:var(--text-faint); flex-shrink:0;
+    position:relative;
+  }
+  .status-dot.checking{background:var(--gold); animation:pulse 1.4s ease-in-out infinite;}
+  .status-dot.online{background:var(--forest);}
+  .status-dot.offline{background:var(--crimson);}
+  @keyframes pulse{0%,100%{opacity:1;} 50%{opacity:0.35;}}
+  .status-text{font-size:13px; color:var(--text-muted);}
+  .status-text .accent{color:var(--text-primary); font-weight:500;}
+  .api-edit-btn{
+    background:none; border:none; color:var(--text-faint); font-family:var(--font-mono);
+    font-size:12px; text-decoration:underline; cursor:pointer; padding:0;
+  }
+  .api-edit-btn:hover{color:var(--gold-bright);}
+  .api-editor{
+    display:none; align-items:center; gap:8px; margin-top:2px;
+  }
+  .api-editor.open{display:flex;}
+  .api-editor input{
+    background:var(--ink-800); border:1px solid var(--ink-600); color:var(--text-primary);
+    font-family:var(--font-mono); font-size:12px; padding:6px 10px; border-radius:var(--radius-sm);
+    width:240px;
+  }
+  .api-editor button{
+    font-family:var(--font-mono); font-size:12px; background:var(--ink-700); color:var(--text-primary);
+    border:1px solid var(--ink-600); padding:6px 10px; border-radius:var(--radius-sm); cursor:pointer;
+  }
+  .api-editor button:hover{border-color:var(--gold);}
+
+  /* ---------- model pills ---------- */
+  .pills{display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap;}
+  .pill{
+    font-family:var(--font-mono); font-size:12.5px; letter-spacing:0.02em;
+    background:var(--ink-800); border:1px solid var(--ink-600); color:var(--text-muted);
+    padding:9px 16px; border-radius:999px; cursor:pointer; transition:all .15s;
+  }
+  .pill:hover:not(:disabled){border-color:var(--gold); color:var(--text-primary);}
+  .pill.active{background:var(--gold); border-color:var(--gold); color:var(--ink-900); font-weight:600;}
+  .pill:disabled{opacity:0.35; cursor:not-allowed;}
+
+  /* ---------- intake panel ---------- */
+  .paper-panel{
+    background:
+      repeating-linear-gradient(180deg, rgba(36,31,20,0.025) 0px, rgba(36,31,20,0.025) 1px, transparent 1px, transparent 27px),
+      var(--paper);
+    border-radius:var(--radius-lg);
+    box-shadow:0 24px 48px -20px rgba(0,0,0,0.55), 0 1px 0 rgba(255,255,255,0.04) inset;
+    padding:22px 24px 20px;
+  }
+  .paper-panel textarea{
+    width:100%; min-height:150px; resize:vertical; border:none; background:transparent;
+    font-family:var(--font-body); font-size:15.5px; line-height:1.7; color:var(--paper-ink);
+    padding:0; outline:none;
+  }
+  .paper-panel textarea::placeholder{color:var(--paper-ink-dim);}
+  .panel-footer{
+    display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;
+    margin-top:14px; padding-top:14px; border-top:1px solid rgba(36,31,20,0.12);
+  }
+  .char-count{font-family:var(--font-mono); font-size:11.5px; color:var(--paper-ink-dim);}
+  .panel-actions{display:flex; gap:10px; flex-wrap:wrap;}
+
+  .btn{
+    font-family:var(--font-body); font-weight:600; font-size:14px; padding:10px 18px;
+    border-radius:999px; cursor:pointer; border:1px solid transparent; transition:transform .1s, box-shadow .15s;
+  }
+  .btn:active{transform:translateY(1px);}
+  .btn-primary{background:var(--ink-900); color:var(--paper); }
+  .btn-primary:hover{box-shadow:0 6px 18px -6px rgba(0,0,0,0.5);}
+  .btn-primary:disabled{opacity:0.5; cursor:not-allowed; box-shadow:none;}
+  .btn-ghost{background:transparent; color:var(--paper-ink-dim); border-color:rgba(36,31,20,0.25);}
+  .btn-ghost:hover{border-color:var(--paper-ink); color:var(--paper-ink);}
+
+  /* ---------- legend ---------- */
+  .legend{
+    margin:26px 0 6px; display:flex; flex-wrap:wrap; gap:8px 10px;
+    padding:14px 16px; background:var(--ink-800); border:1px solid var(--ink-700); border-radius:var(--radius-md);
+  }
+  .legend-label{
+    font-family:var(--font-mono); font-size:10.5px; letter-spacing:0.08em; text-transform:uppercase;
+    color:var(--text-faint); align-self:center; margin-right:4px;
+  }
+  .legend-chip{
+    display:flex; align-items:center; gap:6px; font-size:12.5px; color:var(--text-muted);
+    padding:4px 10px 4px 6px; border-radius:999px; background:var(--ink-700);
+  }
+  .legend-chip .swatch{width:9px; height:9px; border-radius:50%; flex-shrink:0;}
+  .legend-chip .code{font-family:var(--font-mono); font-weight:600; color:var(--text-primary); font-size:11px;}
+
+  /* ---------- empty / loading ---------- */
+  .state-panel{
+    margin-top:34px; padding:44px 20px; text-align:center; border:1px dashed var(--ink-600);
+    border-radius:var(--radius-md); color:var(--text-faint); font-size:14.5px; line-height:1.6;
+  }
+  .state-panel strong{color:var(--text-muted); display:block; font-family:var(--font-display); font-size:17px; margin-bottom:6px; font-weight:500;}
+  .spinner{
+    width:20px; height:20px; border-radius:50%; border:2.5px solid var(--ink-600); border-top-color:var(--gold);
+    margin:0 auto 14px; animation:spin .8s linear infinite;
+  }
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .error-panel{border-color:rgba(178,58,78,0.5); color:var(--text-muted);}
+  .error-panel strong{color:var(--crimson);}
+
+  /* ---------- summary strip ---------- */
+  .summary{
+    margin-top:34px; display:flex; flex-wrap:wrap; gap:22px; align-items:baseline;
+    font-family:var(--font-mono); font-size:12.5px; color:var(--text-faint);
+    padding-bottom:14px; border-bottom:1px solid var(--ink-700);
+  }
+  .summary b{color:var(--text-primary); font-size:15px; font-weight:600;}
+  .summary .sample-badge{
+    margin-left:auto; background:var(--gold); color:var(--ink-900); font-weight:700;
+    padding:3px 10px; border-radius:999px; font-size:10.5px; letter-spacing:0.04em; text-transform:uppercase;
+  }
+
+  /* ---------- document / redline ---------- */
+  .doc-header{
+    display:flex; align-items:center; gap:10px; margin:22px 0 10px;
+    font-family:var(--font-mono); font-size:11.5px; letter-spacing:0.06em; text-transform:uppercase;
+    color:var(--text-faint);
+  }
+  .doc-header .stamp{
+    width:18px; height:18px; border-radius:50%; border:1.5px solid currentColor;
+    display:flex; align-items:center; justify-content:center; font-size:10px; flex-shrink:0;
+  }
+  .document{
+    background:
+      repeating-linear-gradient(180deg, rgba(36,31,20,0.025) 0px, rgba(36,31,20,0.025) 1px, transparent 1px, transparent 27px),
+      var(--paper);
+    color:var(--paper-ink);
+    border-radius:var(--radius-lg);
+    padding:26px 28px;
+    font-size:15.5px; line-height:1.9;
+    box-shadow:0 24px 48px -22px rgba(0,0,0,0.5);
+  }
+  .compare-grid{display:grid; grid-template-columns:1fr 1fr; gap:26px; margin-top:18px;}
+  .compare-grid .document{margin-top:0;}
+
+  .sentence{
+    background:var(--bg, transparent);
+    border-bottom:2px solid var(--bd, transparent);
+    padding:0 1px;
+    border-radius:3px;
+    transition:background .15s;
+  }
+  .sentence.flagged{opacity:1;}
+  .tags{margin-left:3px; white-space:nowrap;}
+  .tag{
+    display:inline-block; background:var(--c); color:#fff;
+    font-family:var(--font-mono); font-weight:600; font-size:9px; letter-spacing:0.03em;
+    text-transform:uppercase; padding:1.5px 5px; border-radius:999px; margin-left:2px;
+    position:relative; cursor:default; vertical-align:2px;
+  }
+  .disagree-mark{
+    color:var(--crimson); font-size:12px; margin-right:2px; cursor:default; position:relative;
+  }
+  [data-tooltip]{position:relative;}
+  [data-tooltip]:hover::after, [data-tooltip]:focus::after{
+    content:attr(data-tooltip);
+    position:absolute; bottom:135%; left:50%; transform:translateX(-50%);
+    background:var(--ink-900); color:var(--paper); font-family:var(--font-body);
+    font-size:11.5px; line-height:1.4; padding:7px 10px; border-radius:7px;
+    white-space:nowrap; box-shadow:0 8px 24px rgba(0,0,0,0.4); pointer-events:none; z-index:30;
+  }
+  [data-tooltip]:hover::before, [data-tooltip]:focus::before{
+    content:""; position:absolute; bottom:112%; left:50%; transform:translateX(-50%);
+    border:5px solid transparent; border-top-color:var(--ink-900); z-index:30;
+  }
+
+  .reveal{opacity:0; animation:fadeUp .5s ease forwards;}
+  @keyframes fadeUp{from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:translateY(0);}}
+
+  .disagreement-note{
+    margin-top:16px; font-size:13px; color:var(--text-faint); line-height:1.6;
+    padding:14px 16px; background:var(--ink-800); border-left:2px solid var(--gold); border-radius:0 var(--radius-sm) var(--radius-sm) 0;
+  }
+  .truncated-note{
+    margin-top:14px; font-size:12.5px; color:var(--crimson); font-family:var(--font-mono);
+  }
+
+  footer{
+    margin:70px 0 40px; padding-top:24px; border-top:1px solid var(--ink-700);
+    font-size:12.5px; color:var(--text-faint); line-height:1.8;
+  }
+  footer a{color:var(--text-muted); text-decoration:none; border-bottom:1px dotted var(--text-faint);}
+  footer a:hover{color:var(--gold-bright); border-color:var(--gold-bright);}
+
+  @media (max-width:980px){
+    .hero-grid{grid-template-columns:1fr; gap:34px;}
+    .hero-panel{position:static;}
+  }
+  @media (max-width:720px){
+    .compare-grid{grid-template-columns:1fr;}
+    header.top{flex-direction:column; align-items:flex-start; gap:14px;}
+  }
+  @media (max-width:520px){
+    .wrap{padding:0 16px;}
+    .panel-footer{flex-direction:column; align-items:stretch;}
+    .panel-actions{justify-content:stretch;}
+    .panel-actions .btn{flex:1;}
+  }
+
+  @media (prefers-reduced-motion:reduce){
+    *{animation:none !important; transition:none !important; scroll-behavior:auto !important;}
+    .reveal{opacity:1;}
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <header class="top">
+    <div class="brand">
+      <svg width="30" height="30" viewBox="0 0 30 30" fill="none">
+        <circle cx="15" cy="15" r="13.5" stroke="#C9A227" stroke-width="1.3"/>
+        <path d="M15 7v16M9 11.5h12M9 18.5h12" stroke="#C9A227" stroke-width="1.3" stroke-linecap="round"/>
+      </svg>
+      <div class="brand-text">
+        <div class="wordmark">REDLINE</div>
+        <div class="tagline">unfair clause detector</div>
+      </div>
+    </div>
+    <a class="repo-link" href="https://github.com/a-llen8/unfair-tos-detector" target="_blank" rel="noopener">github ↗</a>
+  </header>
+
+  <section class="hero">
+    <div class="hero-grid">
+      <div class="hero-copy">
+        <p class="eyebrow">Clause analysis</p>
+        <h1>Every contract has fine print.<br>Some of it <em>isn't fair.</em></h1>
+        <p class="sub">Paste an excerpt from any Terms of Service. Two models — a tuned TF‑IDF baseline and a fine‑tuned DistilBERT — read it clause by clause and mark what they'd flag for a lawyer's attention.</p>
+
+        <div class="status-row">
+          <span class="status-dot checking" id="statusDot"></span>
+          <span class="status-text" id="statusText">Checking for a local backend…</span>
+          <button class="api-edit-btn" id="apiEditToggle" type="button">change API URL</button>
+        </div>
+        <div class="api-editor" id="apiEditor">
+          <input type="text" id="apiInput" value="http://127.0.0.1:8000" spellcheck="false">
+          <button type="button" id="apiSaveBtn">save &amp; recheck</button>
+        </div>
+
+        <div class="legend" id="legend">
+          <span class="legend-label">Legend</span>
+        </div>
+      </div>
+
+      <div class="hero-panel">
+        <div class="pills" role="group" aria-label="Model selection">
+          <button class="pill" data-mode="baseline" type="button">Baseline · TF‑IDF</button>
+          <button class="pill active" data-mode="distilbert" type="button">DistilBERT</button>
+          <button class="pill" data-mode="both" type="button">Compare both</button>
+        </div>
+
+        <div class="paper-panel">
+          <textarea id="tosInput" placeholder="Paste a Terms of Service excerpt here — a single clause or several paragraphs…"></textarea>
+          <div class="panel-footer">
+            <span class="char-count" id="charCount">0 characters</span>
+            <div class="panel-actions">
+              <button class="btn btn-ghost" id="clearBtn" type="button">Clear</button>
+              <button class="btn btn-ghost" id="sampleBtn" type="button">Load a sample</button>
+              <button class="btn btn-primary" id="analyzeBtn" type="button">Analyze clauses</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="resultsArea"></section>
+
+  <footer>
+    <div>Baseline: TF‑IDF (1–2 grams) + one‑vs‑rest logistic regression, <code>C=30</code>, class‑balanced. DistilBERT: fine‑tuned, per‑category thresholds selected by an F1‑maximizing sweep on the validation split (never a flat 0.5 cutoff).</div>
+    <div style="margin-top:6px;">Trained on <a href="https://huggingface.co/datasets/coastalcph/lex_glue" target="_blank" rel="noopener">lex_glue / unfair_tos</a>, chronological split (train 2006–2016, eval 2017). Source on <a href="https://github.com/a-llen8/unfair-tos-detector" target="_blank" rel="noopener">GitHub</a>.</div>
+  </footer>
+
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  const CATEGORIES = [
+    { key:"Limitation of liability", code:"LoL", color:"var(--cat-lol)", hex:"#C9A227" },
+    { key:"Unilateral termination",  code:"UT",  color:"var(--cat-ut)",  hex:"#B23A4E" },
+    { key:"Unilateral change",       code:"UC",  color:"var(--cat-uc)",  hex:"#6E7FD1" },
+    { key:"Content removal",         code:"CR",  color:"var(--cat-cr)",  hex:"#4C9A6A" },
+    { key:"Contract by using",       code:"CBU", color:"var(--cat-cbu)", hex:"#C97B3E" },
+    { key:"Choice of law",           code:"CoL", color:"var(--cat-col)", hex:"#8A6BB0" },
+    { key:"Jurisdiction",            code:"JX",  color:"var(--cat-jx)",  hex:"#4090A8" },
+    { key:"Arbitration",             code:"ARB", color:"var(--cat-arb)", hex:"#8A5A44" },
+  ];
+
+  const THRESHOLDS = {
+    baseline: {
+      "Limitation of liability":0.86, "Unilateral termination":0.60, "Unilateral change":0.67,
+      "Content removal":0.57, "Contract by using":0.74, "Choice of law":0.75,
+      "Jurisdiction":0.27, "Arbitration":0.82,
+    },
+    distilbert: {
+      "Limitation of liability":0.61, "Unilateral termination":0.65, "Unilateral change":0.93,
+      "Content removal":0.95, "Contract by using":0.87, "Choice of law":0.92,
+      "Jurisdiction":0.87, "Arbitration":0.95,
+    }
+  };
+
+  const MODEL_LABEL = { baseline:"Baseline — TF‑IDF + LogReg", distilbert:"DistilBERT — fine‑tuned transformer" };
+
+  let API_BASE = "http://127.0.0.1:8000";
+  let mode = "distilbert";
+  let lastSentences = null;
+  let health = { baseline:true, distilbert:true, ok:false };
+
+  // ---------- helpers ----------
+  function $(id){ return document.getElementById(id); }
+  function escapeHtml(str){
+    return str.replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+  }
+  function hexToRgba(hex, alpha){
+    const h = hex.replace('#','');
+    const r = parseInt(h.substring(0,2),16), g = parseInt(h.substring(2,4),16), b = parseInt(h.substring(4,6),16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  }
+
+  function splitSentences(text){
+    const cleaned = text.replace(/\r\n/g, '\n').trim();
+    if (!cleaned) return [];
+    const abbrevs = ['e.g.','i.e.','etc.','vs.','U.S.','U.K.','Inc.','Ltd.','Co.','Corp.','No.','Mr.','Mrs.','Dr.','St.'];
+    let work = cleaned;
+    abbrevs.forEach((a,i) => { work = work.split(a).join(`__ABBR${i}__`); });
+    const lines = work.split(/\n+/);
+    let pieces = [];
+    lines.forEach(line => {
+      const parts = line.split(/(?<=[.!?])\s+(?=[A-Z"“(])/);
+      pieces = pieces.concat(parts);
+    });
+    return pieces
+      .map(s => { let out = s; abbrevs.forEach((a,i) => { out = out.split(`__ABBR${i}__`).join(a); }); return out.trim(); })
+      .filter(s => s.length > 0);
+  }
+
+  function buildResult(text, baseProbs, distProbs){
+    const bPred = {}, dPred = {};
+    CATEGORIES.forEach(c => {
+      bPred[c.key] = baseProbs[c.key] >= THRESHOLDS.baseline[c.key];
+      dPred[c.key] = distProbs[c.key] >= THRESHOLDS.distilbert[c.key];
+    });
+    return {
+      text,
+      baseline:  { predictions:bPred, probabilities:baseProbs, is_unfair:Object.values(bPred).some(Boolean) },
+      distilbert:{ predictions:dPred, probabilities:distProbs, is_unfair:Object.values(dPred).some(Boolean) },
+    };
+  }
+  function probs(overrides){
+    const p = {}; CATEGORIES.forEach(c => p[c.key] = 0.05);
+    Object.assign(p, overrides); return p;
+  }
+
+  // ---------- legend ----------
+  function renderLegend(){
+    const el = $('legend');
+    CATEGORIES.forEach(c => {
+      const chip = document.createElement('span');
+      chip.className = 'legend-chip';
+      chip.innerHTML = `<span class="swatch" style="background:${c.color}"></span><span class="code">${c.code}</span> ${c.key}`;
+      el.appendChild(chip);
+    });
+  }
+
+  // ---------- health check ----------
+  async function checkHealth(){
+    const dot = $('statusDot'), text = $('statusText');
+    dot.className = 'status-dot checking';
+    text.textContent = 'Checking for a local backend…';
+    try{
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), 2500);
+      const res = await fetch(`${API_BASE}/health`, { signal: ctrl.signal });
+      clearTimeout(t);
+      if (!res.ok) throw new Error('bad status');
+      const data = await res.json();
+      health.ok = true;
+      health.baseline = data.baseline_loaded !== false;
+      health.distilbert = data.distilbert_loaded !== false;
+      dot.className = 'status-dot online';
+      const parts = [];
+      parts.push(health.baseline ? 'baseline ✓' : 'baseline ✕');
+      parts.push(health.distilbert ? 'distilbert ✓' : 'distilbert ✕');
+      text.innerHTML = `<span class="accent">Connected</span> to ${escapeHtml(API_BASE)} — ${parts.join(' · ')}`;
+    }catch(err){
+      health.ok = false; health.baseline = true; health.distilbert = true;
+      dot.className = 'status-dot offline';
+      text.innerHTML = `<span class="accent">No backend reachable</span> at ${escapeHtml(API_BASE)} — start it locally, or load the sample below.`;
+    }
+    updatePillAvailability();
+  }
+
+  function updatePillAvailability(){
+    document.querySelectorAll('.pill').forEach(btn => {
+      const m = btn.dataset.mode;
+      let disabled = false;
+      if (health.ok){
+        if (m === 'baseline') disabled = !health.baseline;
+        if (m === 'distilbert') disabled = !health.distilbert;
+        if (m === 'both') disabled = !health.baseline || !health.distilbert;
+      }
+      btn.disabled = disabled;
+      btn.title = disabled ? 'This model is not currently loaded on the server (see /health).' : '';
+    });
+  }
+
+  // ---------- rendering ----------
+  function sentenceHtml(sentence, modelResult, opts){
+    opts = opts || {};
+    if (!modelResult){
+      return `<span class="sentence reveal" style="--bg:transparent;--bd:transparent; animation-delay:${(opts.delay||0)}ms" data-tooltip="No prediction returned for this sentence — see console">${escapeHtml(sentence)}<sup class="tags"><span class="tag" style="--c:#5E7488" data-tooltip="This sentence has no result from the server">?</span></sup></span> `;
+    }
+    const flagged = CATEGORIES.filter(c => modelResult.predictions[c.key]);
+    const isFlagged = flagged.length > 0;
+    let primaryHex = null;
+    if (isFlagged){
+      let best = flagged[0];
+      flagged.forEach(c => { if (modelResult.probabilities[c.key] > modelResult.probabilities[best.key]) best = c; });
+      primaryHex = best.hex;
+    }
+    const bg = isFlagged ? hexToRgba(primaryHex, 0.16) : 'transparent';
+    const bd = isFlagged ? primaryHex : 'transparent';
+    const tagsHtml = flagged.map(c => {
+      const p = modelResult.probabilities[c.key];
+      const thr = (opts.thresholds || {})[c.key];
+      const tip = `${c.key} — ${Math.round(p*100)}%${thr !== undefined ? ' (threshold ' + Math.round(thr*100) + '%)' : ''}`;
+      return `<span class="tag" style="--c:${c.hex}" data-tooltip="${escapeHtml(tip)}">${c.code}</span>`;
+    }).join('');
+    const warn = opts.disagree ? `<span class="disagree-mark" data-tooltip="Baseline and DistilBERT disagree on this clause">⚠</span>` : '';
+    return `<span class="sentence reveal${isFlagged ? ' flagged' : ''}" style="--bg:${bg};--bd:${bd}; animation-delay:${(opts.delay||0)}ms">${warn}${escapeHtml(sentence)}${tagsHtml ? `<sup class="tags">${tagsHtml}</sup>` : ''}</span> `;
+  }
+
+  function summarize(results, modelKey){
+    let flagged = 0, missing = 0; const cats = new Set();
+    results.forEach(r => {
+      const m = r[modelKey];
+      if (!m){ missing++; return; }
+      if (m.is_unfair){ flagged++; CATEGORIES.forEach(c => { if (m.predictions[c.key]) cats.add(c.key); }); }
+    });
+    return { total: results.length, flagged, catCount: cats.size, missing };
+  }
+
+  function renderSummary(container, results, meta){
+    const s = document.createElement('div');
+    s.className = 'summary';
+    if (meta.mode === 'both'){
+      const sb = summarize(results, 'baseline'), sd = summarize(results, 'distilbert');
+      const disagreements = results.filter(r => r.baseline && r.distilbert && r.baseline.is_unfair !== r.distilbert.is_unfair).length;
+      s.innerHTML = `
+        <span><b>${results.length}</b> sentences read</span>
+        <span><b>${sb.flagged}</b> flagged by baseline</span>
+        <span><b>${sd.flagged}</b> flagged by DistilBERT</span>
+        <span><b>${disagreements}</b> disagreements</span>
+        ${meta.elapsed !== undefined ? `<span>analyzed in <b>${meta.elapsed}ms</b></span>` : ''}
+        ${meta.sample ? '<span class="sample-badge">sample data</span>' : ''}
+      `;
+    } else {
+      const sm = summarize(results, meta.mode);
+      s.innerHTML = `
+        <span><b>${sm.total}</b> sentences read</span>
+        <span><b>${sm.flagged}</b> flagged unfair</span>
+        <span><b>${sm.catCount}</b> categories triggered</span>
+        ${meta.elapsed !== undefined ? `<span>analyzed in <b>${meta.elapsed}ms</b></span>` : ''}
+        ${meta.sample ? '<span class="sample-badge">sample data</span>' : ''}
+      `;
+    }
+    container.appendChild(s);
+  }
+
+  function renderSingleDoc(container, results, modelKey, meta){
+    const header = document.createElement('div');
+    header.className = 'doc-header';
+    header.innerHTML = `<span class="stamp">§</span> ${escapeHtml(MODEL_LABEL[modelKey])}`;
+    container.appendChild(header);
+
+    const doc = document.createElement('div');
+    doc.className = 'document';
+    let html = '';
+    results.forEach((r, i) => { html += sentenceHtml(r.text, r[modelKey], { thresholds: THRESHOLDS[modelKey], delay: i*22 }); });
+    doc.innerHTML = html;
+    container.appendChild(doc);
+
+    if (meta.truncated){
+      const note = document.createElement('div');
+      note.className = 'truncated-note';
+      note.textContent = `Showing the first 100 sentences — the batch endpoint caps a single request there.`;
+      container.appendChild(note);
+    }
+  }
+
+  function renderCompareDoc(container, results, meta){
+    const grid = document.createElement('div');
+    grid.className = 'compare-grid';
+
+    ['baseline','distilbert'].forEach(modelKey => {
+      const col = document.createElement('div');
+      const header = document.createElement('div');
+      header.className = 'doc-header';
+      header.innerHTML = `<span class="stamp">§</span> ${escapeHtml(MODEL_LABEL[modelKey])}`;
+      col.appendChild(header);
+
+      const doc = document.createElement('div');
+      doc.className = 'document doc-col';
+      let html = '';
+      results.forEach((r, i) => {
+        const disagree = !!(r.baseline && r.distilbert && r.baseline.is_unfair !== r.distilbert.is_unfair);
+        html += sentenceHtml(r.text, r[modelKey], { thresholds: THRESHOLDS[modelKey], delay: i*22, disagree });
+      });
+      doc.innerHTML = html;
+      col.appendChild(doc);
+      grid.appendChild(col);
+    });
+
+    container.appendChild(grid);
+
+    const disagreements = results.filter(r => r.baseline && r.distilbert && r.baseline.is_unfair !== r.distilbert.is_unfair).length;
+    if (disagreements > 0){
+      const note = document.createElement('div');
+      note.className = 'disagreement-note';
+      note.innerHTML = `⚠ The two models disagree on <b>${disagreements}</b> of ${results.length} sentences. In evaluation, disagreements cluster around ambiguous "reserves the right to remove/modify" phrasing and short, formulaic termination clauses — see the project's Stage 4 error analysis.`;
+      container.appendChild(note);
+    }
+    if (meta.truncated){
+      const note = document.createElement('div');
+      note.className = 'truncated-note';
+      note.textContent = `Showing the first 100 sentences — the batch endpoint caps a single request there.`;
+      container.appendChild(note);
+    }
+  }
+
+  function renderState(html, isError){
+    const area = $('resultsArea');
+    area.innerHTML = `<div class="state-panel${isError ? ' error-panel' : ''}">${html}</div>`;
+  }
+
+  function renderLoading(){
+    renderState(`<div class="spinner"></div>Reading the fine print…`);
+  }
+
+  function renderEmpty(){
+    renderState(`<strong>Nothing analyzed yet</strong>Paste a clause or full excerpt above, or load a sample, to see the redline.`);
+  }
+
+  function renderResults(sentences, apiResults, m, opts){
+    opts = opts || {};
+    const area = $('resultsArea');
+    area.innerHTML = '';
+    renderSummary(area, apiResults, { mode:m, elapsed:opts.elapsed, sample:opts.sample });
+
+    let missingCount = 0;
+    if (m === 'both'){
+      apiResults.forEach(r => { if (!r.baseline || !r.distilbert) missingCount++; });
+    } else {
+      apiResults.forEach(r => { if (!r[m]) missingCount++; });
+    }
+    if (missingCount > 0){
+      const warn = document.createElement('div');
+      warn.className = 'truncated-note';
+      warn.textContent = `The server returned no prediction for ${missingCount} of ${apiResults.length} sentences (shown with a "?" tag). This usually means the model errored on those specific inputs — check the server terminal.`;
+      area.appendChild(warn);
+    }
+
+    if (m === 'both') renderCompareDoc(area, apiResults, { truncated: opts.truncated });
+    else renderSingleDoc(area, apiResults, m, { truncated: opts.truncated });
+  }
+
+  // ---------- networking ----------
+  async function callApi(sentences, modelParam){
+    const res = await fetch(`${API_BASE}/predict/batch`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ texts: sentences, model: modelParam }),
+    });
+    if (!res.ok){
+      if (res.status === 422) throw new Error('The server rejected the request — check the text length and batch size.');
+      if (res.status === 503) throw new Error('A model failed to load on the server. Check GET /health.');
+      throw new Error(`Server responded with status ${res.status}.`);
+    }
+    return res.json();
+  }
+
+  let isAnalyzing = false;
+
+  async function handleAnalyze(){
+    if (isAnalyzing) return; // ignore overlapping triggers (rapid pill switches, double-clicks)
+    const raw = $('tosInput').value.trim();
+    if (!raw){ renderEmpty(); return; }
+    let sentences = splitSentences(raw);
+    if (sentences.length === 0){ renderEmpty(); return; }
+    let truncated = false;
+    if (sentences.length > 100){ sentences = sentences.slice(0,100); truncated = true; }
+    lastSentences = sentences;
+
+    isAnalyzing = true;
+    setControlsDisabled(true);
+    renderLoading();
+    const t0 = performance.now();
+    try{
+      const data = await callApi(sentences, mode);
+      const elapsed = Math.round(performance.now() - t0);
+      renderResults(sentences, data.results, mode, { elapsed, truncated });
+    }catch(err){
+      renderState(`<strong>Couldn't reach the backend</strong>${escapeHtml(err.message)}<br><br>Start it locally with <code>uvicorn backend.main:app --reload</code> from the project root, or click <b>Load a sample</b> to see how results look.`, true);
+    }finally{
+      isAnalyzing = false;
+      setControlsDisabled(false);
+    }
+  }
+
+  function setControlsDisabled(disabled){
+    $('analyzeBtn').disabled = disabled;
+    document.querySelectorAll('.pill').forEach(b => { if (!disabled) updatePillAvailability(); else b.disabled = true; });
+  }
+
+  function handleSample(){
+    const rows = [
+      buildResult(
+        "This summary explains, in plain terms, how the Service handles your data and your rights as a user.",
+        probs({}), probs({})
+      ),
+      buildResult(
+        "We may terminate your account at any time, for any reason, without notice.",
+        probs({"Unilateral termination":0.81}),
+        probs({"Unilateral termination":0.90})
+      ),
+      buildResult(
+        "By continuing to use the Service after changes are posted, you agree to be bound by the revised Terms.",
+        probs({"Unilateral change":0.55, "Contract by using":0.79}),
+        probs({"Unilateral change":0.95, "Contract by using":0.90})
+      ),
+      buildResult(
+        "In no event shall our aggregate liability exceed the amount you paid us in the past twelve months.",
+        probs({"Limitation of liability":0.93}),
+        probs({"Limitation of liability":0.70})
+      ),
+      buildResult(
+        "We reserve the right to remove or modify any content submitted by users at our sole discretion.",
+        probs({"Content removal":0.61}),
+        probs({"Content removal":0.89})
+      ),
+      buildResult(
+        "These Terms are governed by the laws of the State of Delaware, without regard to conflict of law principles.",
+        probs({"Choice of law":0.88}),
+        probs({"Choice of law":0.96})
+      ),
+      buildResult(
+        "You agree to submit to the exclusive jurisdiction of the courts located in San Francisco, California.",
+        probs({"Jurisdiction":0.35}),
+        probs({"Jurisdiction":0.93})
+      ),
+      buildResult(
+        "Any dispute arising out of these Terms shall be resolved through binding arbitration on an individual basis, and you waive any right to a jury trial or class action.",
+        probs({"Arbitration":0.90}),
+        probs({"Arbitration":0.97})
+      ),
+      buildResult(
+        "Your continued use of the Service after the effective date constitutes acceptance of these Terms.",
+        probs({"Contract by using":0.80}),
+        probs({"Contract by using":0.91})
+      ),
+    ];
+
+    const text = rows.map(r => r.text).join(' ');
+    $('tosInput').value = text;
+    updateCharCount();
+    mode = 'both';
+    document.querySelectorAll('.pill').forEach(b => b.classList.toggle('active', b.dataset.mode === 'both'));
+    lastSentences = rows.map(r => r.text);
+    renderResults(lastSentences, rows, 'both', { elapsed: 214, sample: true });
+  }
+
+  function updateCharCount(){
+    const n = $('tosInput').value.length;
+    $('charCount').textContent = `${n.toLocaleString()} character${n === 1 ? '' : 's'}`;
+  }
+
+  // ---------- wiring ----------
+  function bindEvents(){
+    document.querySelectorAll('.pill').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (btn.disabled) return;
+        mode = btn.dataset.mode;
+        document.querySelectorAll('.pill').forEach(b => b.classList.toggle('active', b === btn));
+        if (lastSentences) handleAnalyze();
+      });
+    });
+
+    $('analyzeBtn').addEventListener('click', handleAnalyze);
+    $('sampleBtn').addEventListener('click', handleSample);
+    $('clearBtn').addEventListener('click', () => {
+      $('tosInput').value = '';
+      updateCharCount();
+      lastSentences = null;
+      renderEmpty();
+    });
+    $('tosInput').addEventListener('input', updateCharCount);
+    $('tosInput').addEventListener('keydown', (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') handleAnalyze();
+    });
+
+    $('apiEditToggle').addEventListener('click', () => {
+      $('apiEditor').classList.toggle('open');
+      $('apiInput').value = API_BASE;
+    });
+    $('apiSaveBtn').addEventListener('click', () => {
+      const v = $('apiInput').value.trim().replace(/\/$/, '');
+      if (v){ API_BASE = v; checkHealth(); }
+      $('apiEditor').classList.remove('open');
+    });
+  }
+
+  renderLegend();
+  bindEvents();
+  updateCharCount();
+  renderEmpty();
+  checkHealth();
+})();
+</script>
+</body>
+</html>
