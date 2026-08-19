@@ -79,3 +79,13 @@ def predict_batch(req: BatchPredictRequest):
     except RuntimeError as e:
         raise HTTPException(status_code=503, detail=str(e))
     return BatchPredictResponse(results=[PredictResponse(**r) for r in results])
+
+from fastapi.responses import JSONResponse
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request, exc):
+    return JSONResponse(
+        status_code=500,
+        content={"detail": str(exc)},
+        headers={"Access-Control-Allow-Origin": "*"},
+    )
